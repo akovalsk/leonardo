@@ -31,7 +31,8 @@ case class ClusterRequest(labels: LabelMap = Map(),
                           stopAfterCreation: Option[Boolean] = None,
                           userJupyterExtensionConfig: Option[UserJupyterExtensionConfig] = None,
                           autopause: Option[Boolean] = None,
-                          autopauseThreshold: Option[Int] = None)
+                          autopauseThreshold: Option[Int] = None,
+                          defaultGoogleClientID: Option[String] = None)
 
 
 case class UserJupyterExtensionConfig(nbExtensions: Map[String, String] = Map(),
@@ -73,7 +74,8 @@ case class Cluster(id: Long = 0, // DB AutoInc
                    instances: Set[Instance],
                    userJupyterExtensionConfig: Option[UserJupyterExtensionConfig],
                    dateAccessed: Instant,
-                   autopauseThreshold: Int) {
+                   autopauseThreshold: Int,
+                   defaultGoogleClientID: Option[String]) {
   def projectNameString: String = s"${googleProject.value}/${clusterName.value}"
   def nonPreemptibleInstances: Set[Instance] = instances.filterNot(_.dataprocRole.contains(SecondaryWorker))
 }
@@ -111,7 +113,8 @@ object Cluster {
       instances = Set.empty,
       userJupyterExtensionConfig = clusterRequest.userJupyterExtensionConfig,
       dateAccessed = Instant.now(),
-      autopauseThreshold = autopauseThreshold)
+      autopauseThreshold = autopauseThreshold,
+      defaultGoogleClientID = clusterRequest.defaultGoogleClientID)
   }
   
   // TODO it's hacky to re-parse the Leo config in the model object.
@@ -266,9 +269,65 @@ object LeonardoJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
     }
   }
 
+  implicit object ClusterFormat extends RootJsonFormat[Cluster] {
+    override def write(obj: Cluster) = JsObject(
+                "id" -> obj.id.toJson,
+                "clusterName" -> obj.clusterName.toJson,
+                "googleId" -> obj.googleId.toJson,
+                "googleProject" -> obj.googleProject.toJson,
+                "serviceAccountInfo" -> obj.serviceAccountInfo.toJson,
+                "machineConfig" -> obj.machineConfig.toJson,
+                "clusterUrl" -> obj.clusterUrl.toJson,
+                "operationName" -> obj.operationName.toJson,
+                "status" -> obj.status.toJson,
+                "hostIp" -> obj.hostIp.toJson,
+                "creator" -> obj.creator.toJson,
+                "createdDate" -> obj.createdDate.toJson,
+                "destroyedDate" -> obj.destroyedDate.toJson,
+                "labels" -> obj.labels.toJson,
+                "jupyterExtensionUri" -> obj.jupyterExtensionUri.toJson,
+                "jupyterUserScriptUri" -> obj.jupyterUserScriptUri.toJson,
+                "stagingBucket" -> obj.stagingBucket.toJson,
+                "errors" -> obj.errors.toJson,
+                "instances" -> obj.instances.toJson,
+                "userJupyterExtensionConfig" -> obj.userJupyterExtensionConfig.toJson,
+                "dateAccessed" -> obj.dateAccessed.toJson,
+                "autopauseThreshold" -> obj.autopauseThreshold.toJson,
+                "defaultGoogleClientID" -> obj.defaultGoogleClientID.toJson)
+
+    override def read(json: JsValue): Cluster = json.asJsObject.getFields("id", "clusterName", "googleID", "googleProject", "serviceAccountInfo", "machineConfig", "clusterUrl", "operationName", "status", "hostIp", "creator", "createdDate", "destroyedDate", "labels", "jupyterExtensionUri", "jupyterUserScriptUri", "stagingBucket", "errors", "instances", "userJupyterExtensionConfig", "dateAccessed", "autopauseThreshold", "defaultGoogleClientID") match {
+      case Seq(id, clusterName, googleID, googleProject, serviceAccountInfo, machineConfig, clusterUrl, operationName, status, hostIp, creator, createdDate, destroyedDate, labels, jupyterExtensionUri, jupyterUserScriptUri, stagingBucket, errors, instances, userJupyterExtensionConfig, dateAccessed, autopauseThreshold, defaultGoogleClientID) =>
+        Cluster(
+          id.convertTo[Long],
+          json.convertTo[ClusterName],
+          json.convertTo[Option[UUID]],
+          json.convertTo[GoogleProject],
+          json.convertTo[ServiceAccountInfo],
+          json.convertTo[MachineConfig],
+          json.convertTo[URL],
+          json.convertTo[Option[OperationName]],
+          json.convertTo[ClusterStatus],
+          json.convertTo[Option[IP]],
+          json.convertTo[WorkbenchEmail],
+          json.convertTo[Instant],
+          json.convertTo[Option[Instant]],
+          json.convertTo[LabelMap],
+          json.convertTo[Option[GcsPath]],
+          json.convertTo[Option[GcsPath]],
+          json.convertTo[Option[GcsBucketName]],
+          json.convertTo[List[ClusterError]],
+          json.convertTo[Set[Instance]],
+          json.convertTo[Option[UserJupyterExtensionConfig]],
+          json.convertTo[Instant],
+          json.convertTo[Int],
+          json.convertTo[Option[String]])
+      case _ => throw new DeserializationException("Cluster expected")
+    }
+  }
+
   implicit val UserClusterExtensionConfigFormat = jsonFormat3(UserJupyterExtensionConfig.apply)
 
-  implicit val ClusterRequestFormat = jsonFormat8(ClusterRequest)
+  implicit val ClusterRequestFormat = jsonFormat9(ClusterRequest)
 
   implicit val ClusterResourceFormat = ValueObjectFormat(ClusterResource)
 
@@ -276,7 +335,7 @@ object LeonardoJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
 
   implicit val ClusterErrorFormat = jsonFormat3(ClusterError.apply)
 
-  implicit val ClusterFormat = jsonFormat22(Cluster.apply)
+  //implicit val ClusterFormat = jsonFormat23(Cluster.apply)
 
   implicit val DefaultLabelsFormat = jsonFormat6(DefaultLabels.apply)
 

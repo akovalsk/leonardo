@@ -31,7 +31,8 @@ case class ClusterRecord(id: Long,
                          serviceAccountInfo: ServiceAccountInfoRecord,
                          stagingBucket: Option[String],
                          dateAccessed: Timestamp,
-                         autopauseThreshold: Int)
+                         autopauseThreshold: Int,
+                         defaultGoogleClientID: Option[String])
 
 case class MachineConfigRecord(numberOfWorkers: Int,
                                masterMachineType: String,
@@ -77,6 +78,7 @@ trait ClusterComponent extends LeoComponent {
     def stagingBucket =               column[Option[String]]    ("stagingBucket",         O.Length(254))
     def dateAccessed =                column[Timestamp]         ("dateAccessed",          O.SqlType("TIMESTAMP(6)"))
     def autopauseThreshold =                      column[Int]                    ("autopauseThreshold")
+    def defaultGoogleClientID =        column[Option[String]]     ("defaultGoogleClientID", O.Length(1024))
 
     def uniqueKey = index("IDX_CLUSTER_UNIQUE", (googleProject, clusterName, destroyedDate), unique = true)
 
@@ -88,23 +90,23 @@ trait ClusterComponent extends LeoComponent {
       id, clusterName, googleId, googleProject, operationName, status, hostIp, creator,
       createdDate, destroyedDate, jupyterExtensionUri, jupyterUserScriptUri, initBucket,
       (numberOfWorkers, masterMachineType, masterDiskSize, workerMachineType, workerDiskSize, numberOfWorkerLocalSSDs, numberOfPreemptibleWorkers),
-      (clusterServiceAccount, notebookServiceAccount, serviceAccountKeyId), stagingBucket, dateAccessed, autopauseThreshold
+      (clusterServiceAccount, notebookServiceAccount, serviceAccountKeyId), stagingBucket, dateAccessed, autopauseThreshold, defaultGoogleClientID
     ).shaped <> ({
       case (id, clusterName, googleId, googleProject, operationName, status, hostIp, creator,
-            createdDate, destroyedDate, jupyterExtensionUri, jupyterUserScriptUri, initBucket, machineConfig, serviceAccountInfo, stagingBucket, dateAccessed, autopauseThreshold) =>
+            createdDate, destroyedDate, jupyterExtensionUri, jupyterUserScriptUri, initBucket, machineConfig, serviceAccountInfo, stagingBucket, dateAccessed, autopauseThreshold, defaultGoogleClientID) =>
         ClusterRecord(
           id, clusterName, googleId, googleProject, operationName, status, hostIp, creator,
           createdDate, destroyedDate, jupyterExtensionUri, jupyterUserScriptUri, initBucket,
           MachineConfigRecord.tupled.apply(machineConfig),
           ServiceAccountInfoRecord.tupled.apply(serviceAccountInfo),
-          stagingBucket, dateAccessed, autopauseThreshold)
+          stagingBucket, dateAccessed, autopauseThreshold, defaultGoogleClientID)
     }, { c: ClusterRecord =>
       def mc(_mc: MachineConfigRecord) = MachineConfigRecord.unapply(_mc).get
       def sa(_sa: ServiceAccountInfoRecord) = ServiceAccountInfoRecord.unapply(_sa).get
       Some((
         c.id, c.clusterName, c.googleId, c.googleProject, c.operationName, c.status, c.hostIp, c.creator,
         c.createdDate, c.destroyedDate, c.jupyterExtensionUri, c.jupyterUserScriptUri, c.initBucket,
-        mc(c.machineConfig), sa(c.serviceAccountInfo), c.stagingBucket, c.dateAccessed, c.autopauseThreshold
+        mc(c.machineConfig), sa(c.serviceAccountInfo), c.stagingBucket, c.dateAccessed, c.autopauseThreshold, c.defaultGoogleClientID
       ))
     })
   }
@@ -347,7 +349,8 @@ trait ClusterComponent extends LeoComponent {
         ),
         cluster.stagingBucket.map(_.value),
         Timestamp.from(cluster.dateAccessed),
-        cluster.autopauseThreshold
+        cluster.autopauseThreshold,
+        cluster.defaultGoogleClientID
       )
     }
 
@@ -419,7 +422,8 @@ trait ClusterComponent extends LeoComponent {
         instanceRecords map ClusterComponent.this.instanceQuery.unmarshalInstance toSet,
         ClusterComponent.this.extensionQuery.unmarshallExtensions(userJupyterExtensionConfig),
         clusterRecord.dateAccessed.toInstant,
-        clusterRecord.autopauseThreshold
+        clusterRecord.autopauseThreshold,
+        clusterRecord.defaultGoogleClientID
       )
     }
   }
