@@ -47,7 +47,7 @@ class NotebookInstallSpec extends ClusterFixtureSpec {
         val ronPetServiceAccount = Sam.user.petServiceAccountEmail(clusterFixture.billingProject.value)(ronAuthToken)
         googleStorageDAO.setBucketAccessControl(bucketName, EmailGcsEntity(GcsEntityTypes.User, ronPetServiceAccount), GcsRoles.Owner)
 
-        val userScriptString = "#!/usr/bin/env bash\n\npip2 install arrow"
+        val userScriptString = "#!/usr/bin/env bash\n\npip3 install arrow"
         val userScriptObjectName = GcsObjectName("user-script.sh")
         val userScriptUri = s"gs://${bucketName.value}/${userScriptObjectName.value}"
 
