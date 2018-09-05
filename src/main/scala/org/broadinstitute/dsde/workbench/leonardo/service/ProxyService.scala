@@ -168,6 +168,9 @@ class ProxyService(proxyConfig: ProxyConfig,
     // 3. build a new HttpRequest
     val newRequest = request.copy(headers = newHeaders, uri = newUri)
 
+    println(request.uri)
+    println(newRequest.uri)
+
     // Plug a Source and Sink into our Flow. This materializes the Flow and initializes the HTTP connection
     // to the notebook server.
     // - the Source is the modified HttpRequest from above
