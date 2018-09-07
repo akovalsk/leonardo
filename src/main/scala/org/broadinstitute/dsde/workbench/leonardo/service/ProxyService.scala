@@ -164,9 +164,9 @@ class ProxyService(proxyConfig: ProxyConfig,
     // 1. filter out headers not needed for the backend server
     val newHeaders = filterHeaders(request.headers)
     // 2. strip out Uri.Authority:
-    val newUri = Uri(path = request.uri.path, queryString = request.uri.queryString())
+    //val newUri = Uri(path = request.uri.path, queryString = request.uri.queryString())
     // 3. build a new HttpRequest
-    val newRequest = request.copy(headers = newHeaders, uri = newUri)
+    val newRequest = request.copy(headers = newHeaders, uri = "/ignored")
 
     // Plug a Source and Sink into our Flow. This materializes the Flow and initializes the HTTP connection
     // to the notebook server.
