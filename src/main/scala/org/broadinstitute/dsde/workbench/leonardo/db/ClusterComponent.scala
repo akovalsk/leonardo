@@ -145,6 +145,15 @@ trait ClusterComponent extends LeoComponent {
       }
     }
 
+    // return clusters whose statuses, if/when changed, may require monitoring
+    // e.g. a cluster that is in Running status - if it changes to Stopping, the cluster would need monitoring
+    def listMonitorable(): DBIO[Seq[Cluster]] = {
+      clusterQuery
+        .filter { _.status inSetBind ClusterStatus.monitorableStatuses.map(_.toString) }
+        .result
+        .map { unmarshalClusters }
+    }
+
     def countByClusterServiceAccountAndStatus(clusterServiceAccount: WorkbenchEmail, status: ClusterStatus) = {
       clusterQuery
         .filter { _.clusterServiceAccount === Option(clusterServiceAccount.value) }
@@ -389,6 +398,12 @@ trait ClusterComponent extends LeoComponent {
       clusterInstanceLabelMap.map { case (clusterRecord, (instanceRecords, errorRecords, labels, extensions)) =>
         unmarshalCluster(clusterRecord, instanceRecords.toSet.toSeq, errorRecords.groupBy(_.timestamp).map(_._2.head).toList, labels.mapValues(_.toSet.head), extensions)
       }.toSeq
+    }
+
+    private def unmarshalClusters(clusterRecords: Seq[ClusterRecord]): Seq[Cluster] = {
+      clusterRecords map { rec =>
+        unmarshalCluster(rec, Seq.empty, List.empty, Map.empty, List.empty)
+      }
     }
 
     private def unmarshalCluster(clusterRecord: ClusterRecord, instanceRecords: Seq[InstanceRecord], errors: List[ClusterErrorRecord], labels: LabelMap, userJupyterExtensionConfig: List[ExtensionRecord]): Cluster = {
