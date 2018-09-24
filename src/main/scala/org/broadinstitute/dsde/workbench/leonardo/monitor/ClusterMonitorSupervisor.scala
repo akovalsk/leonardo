@@ -128,7 +128,7 @@ class ClusterMonitorSupervisor(monitorConfig: MonitorConfig, dataprocConfig: Dat
       autoFreezeClusters()
 
     case Tick =>
-      createClusterMonitors()
+      createClusterMonitors
   }
 
   def createChildActor(cluster: Cluster): ActorRef = {

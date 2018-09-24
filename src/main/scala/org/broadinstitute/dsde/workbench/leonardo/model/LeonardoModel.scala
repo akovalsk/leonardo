@@ -113,7 +113,7 @@ object Cluster {
       userJupyterExtensionConfig = clusterRequest.userJupyterExtensionConfig,
       autopauseThreshold = autopauseThreshold,
       defaultClientId = clusterRequest.defaultClientId,
-      stopAfterCreation= clusterRequest.stopAfterCreation.getOrElse(false))
+      stopAfterCreation = clusterRequest.stopAfterCreation.getOrElse(false))
   }
   
   // TODO it's hacky to re-parse the Leo config in the model object.
@@ -346,7 +346,7 @@ object LeonardoJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
         "dateAccessed" -> obj.auditInfo.dateAccessed.toJson,
         "autopauseThreshold" -> obj.autopauseThreshold.toJson,
         "defaultClientId" -> obj.defaultClientId.toJson,
-        "stopAfterCreation" -> Option(obj.stopAfterCreation).toJson
+        "stopAfterCreation" -> obj.stopAfterCreation.toJson
       )
 
       val presentFields = allFields.filter(_._2 != JsNull)
