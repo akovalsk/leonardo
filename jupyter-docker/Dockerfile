@@ -1,6 +1,6 @@
 # adapted from https://hub.docker.com/r/jupyter/base-notebook/ AKA https://github.com/jupyter/docker-stacks/tree/master/base-notebook
 
-FROM debian:jessie
+FROM debian:stretch
 
 USER root
 
@@ -12,10 +12,10 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV DEBIAN_REPO http://cdn-fastly.deb.debian.org
 ENV CRAN_REPO http://cran.mtu.edu
 
-RUN echo "deb $DEBIAN_REPO/debian jessie main"                   > /etc/apt/sources.list \
- && echo "deb $DEBIAN_REPO/debian-security jessie/updates main" >> /etc/apt/sources.list \
- && echo "deb $DEBIAN_REPO/debian jessie-backports main"        >> /etc/apt/sources.list \
- && echo "deb $CRAN_REPO/bin/linux/debian jessie-cran34/"       >> /etc/apt/sources.list \
+RUN echo "deb $DEBIAN_REPO/debian stretch main"                   > /etc/apt/sources.list \
+ && echo "deb $DEBIAN_REPO/debian-security stretch/updates main" >> /etc/apt/sources.list \
+ && echo "deb $DEBIAN_REPO/debian stretch-backports main"        >> /etc/apt/sources.list \
+ && echo "deb $CRAN_REPO/bin/linux/debian stretch-cran34/"       >> /etc/apt/sources.list \
  && apt-key adv --keyserver keys.gnupg.net \
     --recv-key 'E19F5F87128899B192B1A2C2AD5F960A256A04AF' \
  && apt-get update \
@@ -208,7 +208,7 @@ ENV PIP_USER=true
 #######################
 
 RUN apt-get update \
- && apt-get -t jessie-cran34 install -y --no-install-recommends \
+ && apt-get -t stretch-cran34 install -y --no-install-recommends \
     r-base \
     r-base-dev \
     r-recommended \
