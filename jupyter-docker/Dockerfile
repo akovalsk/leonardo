@@ -16,9 +16,9 @@ RUN echo "deb $DEBIAN_REPO/debian stretch main"                   > /etc/apt/sou
  && echo "deb $DEBIAN_REPO/debian-security stretch/updates main" >> /etc/apt/sources.list \
  && echo "deb $DEBIAN_REPO/debian stretch-backports main"        >> /etc/apt/sources.list \
  && echo "deb $CRAN_REPO/bin/linux/debian stretch-cran34/"       >> /etc/apt/sources.list \
+ && apt-get update && apt-get install -my wget gnupg \
  && apt-key adv --keyserver keys.gnupg.net \
     --recv-key 'E19F5F87128899B192B1A2C2AD5F960A256A04AF' \
- && apt-get update \
  && apt-get -yq dist-upgrade \
  && apt-get install -yq --no-install-recommends \
     nano \
@@ -74,7 +74,7 @@ RUN wget --header "Cookie: oraclelicense=accept-securebackup-cookie" $JAVA_URL \
 #   https://cloud.google.com/dataproc/docs/concepts/versioning/dataproc-versions
 # Dataproc supports Spark 2.2.0, but there are no pre-packaged Hail distributions past 2.1.0. See:
 #   https://hail.is/docs/stable/getting_started.html
-ENV SPARK_VER 2.0.2
+ENV SPARK_VER 2.3.1
 ENV SPARK_HOME=/usr/lib/spark
 
 # result of `gsutil cat gs://hail-common/builds/0.1/latest-hash-spark-2.0.2.txt` on 11 January 2018
@@ -237,7 +237,7 @@ RUN R -e 'install.packages(c( \
  && R -e 'devtools::install_github("IRkernel/IRkernel")' \
  && R -e 'IRkernel::installspec(user=FALSE)' \
  && chown -R $USER:users /home/jupyter-user/.local  \
- && R -e 'devtools::install_github("apache/spark@v2.0.2", subdir="R/pkg")' \
+ && R -e 'devtools::install_github("apache/spark@v2.3.1", subdir="R/pkg")' \
  && mkdir -p /home/jupyter-user/.rpackages \
  && echo "R_LIBS=/home/jupyter-user/.rpackages" > /home/jupyter-user/.Renviron \
  && chown -R $USER:users /home/jupyter-user/.rpackages
