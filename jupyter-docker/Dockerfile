@@ -155,8 +155,6 @@ RUN apt-get update \
  && pip install bx-python \
  && pip install fastinterval \
  && pip install matplotlib-venn \
- # for jupyter_localize_extension
- && pip install python-datauri \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
@@ -196,6 +194,8 @@ RUN apt-get update \
  && pip3 install bx-python \
  && pip3 install fastinterval \
  && pip3 install matplotlib-venn \
+ # for jupyter_localize_extension
+ && pip3 install python-datauri \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
