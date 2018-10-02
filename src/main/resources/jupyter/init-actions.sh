@@ -167,7 +167,7 @@ if [[ "${ROLE}" == 'Master' ]]; then
     log 'Installing Hail additions to Jupydocker spark.conf...'
 
     # Install the Hail additions to Spark conf.
-    # docker exec -u root ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/hail/spark_install_hail.sh
+    docker exec -u root ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/hail/spark_install_hail.sh
 
     # Copy the actual service account JSON file into the Jupyter docker container.
     if [ ! -z ${JUPYTER_SERVICE_ACCOUNT_CREDENTIALS} ] ; then
