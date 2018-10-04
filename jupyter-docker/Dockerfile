@@ -128,7 +128,8 @@ RUN apt-get update \
  # jessie's default pip doesn't work well with jupyter 
  && wget -nv https://bootstrap.pypa.io/get-pip.py \
  && python get-pip.py \
-
+ # Hail requires decorator
+ && pip install -U decorator==4.2.1 \
  && pip install numpy==1.15.0 \
  && python -mpip install matplotlib \
  && pip install pandas \
@@ -164,11 +165,11 @@ RUN apt-get update \
 
  && python3 get-pip.py \
  # install the python 3 kernel
- # Hail requires decorator
- && pip3 install -U decorator==4.2.1 \
  && pip3 install tornado==4.5.3 \
  && pip3 install ipykernel==4.8.2 \
  && python3 -m ipykernel install --name python3 --display-name "Python 3" \
+ # Hail requires decorator
+ && pip3 install -U decorator==4.2.1 \
  # python 3 packages
  && pip3 install numpy==1.15.0 \
  && python3 -mpip install matplotlib \
