@@ -74,15 +74,15 @@ RUN wget --header "Cookie: oraclelicense=accept-securebackup-cookie" $JAVA_URL \
 #   https://cloud.google.com/dataproc/docs/concepts/versioning/dataproc-versions
 # Dataproc supports Spark 2.2.0, but there are no pre-packaged Hail distributions past 2.1.0. See:
 #   https://hail.is/docs/stable/getting_started.html
-ENV SPARK_VER 2.2.0
+ENV SPARK_VER 2.0.2
 ENV SPARK_HOME=/usr/lib/spark
 
-# result of `gsutil cat gs://hail-common/builds/devel/latest-hash-spark-2.2.0.txt` on 02 October 2018
- ENV HAILHASH 17a988f2a628
- ENV HAILJAR hail-devel-$HAILHASH-Spark-$SPARK_VER.jar
- ENV HAILPYTHON hail-devel-$HAILHASH.zip
- ENV HAILZIP Hail-devel-$HAILHASH-Spark-$SPARK_VER.zip
- ENV HAIL_HOME /etc/hail
+# result of `gsutil cat gs://hail-common/builds/0.1/latest-hash-spark-2.2.0.txt` on 02 October 2018
+ENV HAILHASH 5c275cc216e1
+ENV HAILJAR hail-0.1-$HAILHASH-Spark-$SPARK_VER.jar
+ENV HAILPYTHON hail-0.1-$HAILHASH.zip
+ENV HAILZIP Hail-0.1-$HAILHASH-Spark-$SPARK_VER.zip
+ENV HAIL_HOME /etc/hail
 ENV KERNELSPEC_HOME /usr/local/share/jupyter/kernels
 
 # Note Spark and Hadoop are mounted from the outside Dataproc VM.
@@ -92,9 +92,9 @@ RUN mkdir -p /etc/spark/conf.dist && mkdir -p /etc/hadoop/conf.empty && mkdir -p
  && update-alternatives --install /etc/hadoop/conf hadoop-conf /etc/hadoop/conf.empty 100 \
  && update-alternatives --install /etc/hive/conf hive-conf /etc/hive/conf.dist 100 \
  && mkdir $HAIL_HOME && cd $HAIL_HOME \
- && wget -nv http://storage.googleapis.com/hail-common/builds/devel/jars/$HAILJAR \
- && wget -nv http://storage.googleapis.com/hail-common/builds/devel/python/$HAILPYTHON \
- && wget -nv http://storage.googleapis.com/hail-common/distributions/devel/$HAILZIP \
+ && wget -nv http://storage.googleapis.com/hail-common/builds/0.1/jars/$HAILJAR \
+ && wget -nv http://storage.googleapis.com/hail-common/builds/0.1/python/$HAILPYTHON \
+ && wget -nv http://storage.googleapis.com/hail-common/distributions/0.1/$HAILZIP \
  && cd -
 
 #######################
@@ -129,13 +129,10 @@ RUN apt-get update \
  && wget -nv https://bootstrap.pypa.io/get-pip.py \
  && python get-pip.py \
 
- # Hail requires decorator
- && pip install -U decorator==4.2.1 \
  && pip install numpy==1.15.0 \
  && python -mpip install matplotlib \
  && pip install pandas \
  && pip install seaborn \
- && pip install -U jupyter \
  && pip install google-api-core==1.3.0 \
  && pip install google-cloud-bigquery==1.4.0 \
  && pip install google-cloud-bigquery-datatransfer==0.1.1 \
@@ -167,6 +164,8 @@ RUN apt-get update \
 
  && python3 get-pip.py \
  # install the python 3 kernel
+ # Hail requires decorator
+ && pip3 install -U decorator==4.2.1 \
  && pip3 install tornado==4.5.3 \
  && pip3 install ipykernel==4.8.2 \
  && python3 -m ipykernel install --name python3 --display-name "Python 3" \
@@ -175,6 +174,7 @@ RUN apt-get update \
  && python3 -mpip install matplotlib \
  && pip3 install pandas \
  && pip3 install seaborn \
+ && pip3 install -U jupyter \
  && pip3 install python-lzo \
  && pip3 install google-api-core==1.3.0 \
  && pip3 install google-cloud-bigquery==1.4.0 \
@@ -257,7 +257,7 @@ RUN chown -R $USER:users $JUPYTER_HOME \
 # This edits the already built main.min.js file to prevent the notebook from scheduling a reconnect when a websocket is in a closing state
 # As a result, the websocket is allowed to reconnect on its own and doesn't get stuck in an infinite reconnection loop.
 # It should be removed at the first opportunity :(
-RUN sed -i "s/this._schedule_reconnect();//" ./usr/local/lib/python2.7/dist-packages/notebook/static/notebook/js/main.min.js
+# RUN sed -i "s/this._schedule_reconnect();//" ./usr/local/lib/python3.5/dist-packages/notebook/static/notebook/js/main.min.js
 
 USER $USER
 WORKDIR $HOME
