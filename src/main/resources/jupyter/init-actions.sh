@@ -274,16 +274,18 @@ if [[ "${ROLE}" == 'Master' ]]; then
       docker exec -u root ${JUPYTER_SERVER_NAME} chmod +x ${JUPYTER_HOME}/${JUPYTER_USER_SCRIPT}
       docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_HOME}/${JUPYTER_USER_SCRIPT}
     fi
-    apt-get upgrade python3.6
-    echo "y"
 
     log 'Starting Jupyter Notebook...'
     docker exec -d ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/run-jupyter.sh
     log 'All done!'
-else
-    apt-get upgrade python3.6
-    echo "y"
 fi
+
+wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz
+tar xvf Python-3.6.4.tgz
+cd Python-3.6.4
+./configure --enable-optimizations
+make -j8
+sudo make altinstall
 
 
 
