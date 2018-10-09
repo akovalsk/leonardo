@@ -13,6 +13,7 @@ import org.broadinstitute.dsde.workbench.model.google.{EmailGcsEntity, GcsObject
 import org.broadinstitute.dsde.workbench.service.util.Tags
 import org.scalatest.{FreeSpec, ParallelTestExecution}
 
+import scala.concurrent.duration._
 import scala.util.Try
 
 class ClusterMonitoringSpec extends FreeSpec with LeonardoTestUtils with ParallelTestExecution with BillingFixtures {
@@ -32,7 +33,7 @@ class ClusterMonitoringSpec extends FreeSpec with LeonardoTestUtils with Paralle
           cluster.serviceAccountInfo.notebookServiceAccount shouldBe None
 
           withWebDriver { implicit driver =>
-            withNewNotebook(cluster) { notebookPage =>
+            withNewNotebook(cluster, PySpark2) { notebookPage =>
               // should not have notebook credentials because Leo is not configured to use a notebook service account
               verifyNoNotebookCredentials(notebookPage)
             }
@@ -100,7 +101,7 @@ class ClusterMonitoringSpec extends FreeSpec with LeonardoTestUtils with Paralle
 
           withNewCluster(project, request = request) { cluster =>
             withWebDriver { implicit driver =>
-              withNewNotebook(cluster) { notebookPage =>
+              withNewNotebook(cluster, PySpark2) { notebookPage =>
                 verifyHailImport(notebookPage, destPath, cluster.clusterName)
               }
             }
@@ -130,7 +131,8 @@ class ClusterMonitoringSpec extends FreeSpec with LeonardoTestUtils with Paralle
 
             // TODO make tests rename notebooks?
             val notebookPath = new File("Untitled.ipynb")
-            withOpenNotebook(cluster, notebookPath) { notebookPage =>
+            // Use a longer timeout than default because opening notebooks after resume can be slow
+            withOpenNotebook(cluster, notebookPath, 5.minutes) { notebookPage =>
               // old output should still exist
               val firstCell = notebookPage.firstCell
               notebookPage.cellOutput(firstCell) shouldBe Some(printStr)
@@ -165,7 +167,7 @@ class ClusterMonitoringSpec extends FreeSpec with LeonardoTestUtils with Paralle
           withNewCluster(project, request = request) { cluster =>
             // Verify a Hail job uses preemptibles
             withWebDriver { implicit driver =>
-              withNewNotebook(cluster) { notebookPage =>
+              withNewNotebook(cluster, PySpark2) { notebookPage =>
                 verifyHailImport(notebookPage, destPath, cluster.clusterName)
                 notebookPage.saveAndCheckpoint()
               }
@@ -177,7 +179,8 @@ class ClusterMonitoringSpec extends FreeSpec with LeonardoTestUtils with Paralle
               startAndMonitor(cluster.googleProject, cluster.clusterName)
 
               // Verify the Hail import again in a new notebook
-              withNewNotebook(cluster) { notebookPage =>
+              // Use a longer timeout than default because opening notebooks after resume can be slow
+              withNewNotebook(cluster, timeout = 5.minutes) { notebookPage =>
                 notebookPage.executeCell("sum(range(1,10))") shouldBe Some("45")
 
                 // TODO: Hail verification is disabled here because Spark sometimes doesn't restart correctly
