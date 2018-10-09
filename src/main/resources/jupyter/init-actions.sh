@@ -280,9 +280,9 @@ if [[ "${ROLE}" == 'Master' ]]; then
     log 'All done!'
 fi
 
-wget https://www.python.org/ftp/python/3.6.6/Python-3.6.6.tgz
-tar xvf Python-3.6.6.tgz
-cd Python-3.6.6
+wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz
+tar xvf Python-3.6.4.tgz
+cd Python-3.6.4
 ./configure --enable-optimizations
 make -j8
 sudo make altinstall
