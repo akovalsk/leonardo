@@ -158,10 +158,15 @@ RUN apt-get update \
 
 
 # Python 3 Kernel
-RUN apt-get update \
- &&  apt-get install -yq --no-install-recommends python3 \
-        python3-dev \
-        python3-tk \
+RUN wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz
+ && tar xvf Python-3.6.4.tgz
+ && cd Python-3.6.4
+ && ./configure --enable-optimizations
+ && make -j8
+ && make altinstall
+# &&  apt-get install -yq --no-install-recommends python3 \
+#        python3-dev \
+#        python3-tk \
 
  && python3 get-pip.py \
  # install the python 3 kernel
@@ -197,8 +202,9 @@ RUN apt-get update \
  && pip3 install matplotlib-venn \
  # for jupyter_localize_extension
  && pip3 install python-datauri \
- && apt-get clean \
+ #&& apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+
 
 # make pip install to a user directory, instead of a system directory which requires root.
 # this is useful so `pip install` commands can be run in the context of a notebook.

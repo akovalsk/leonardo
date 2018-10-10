@@ -278,16 +278,16 @@ if [[ "${ROLE}" == 'Master' ]]; then
     log 'Starting Jupyter Notebook...'
     docker exec -d ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/run-jupyter.sh
     log 'All done!'
+
+else
+    wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz
+    tar xvf Python-3.6.4.tgz
+    cd Python-3.6.4
+    ./configure --enable-optimizations
+    make -j8
+    sudo make altinstall
 fi
 
-apt-get upgrade -y python3.6
-
-#wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz
-#tar xvf Python-3.6.4.tgz
-#cd Python-3.6.4
-#./configure --enable-optimizations
-#make -j8
-#sudo make altinstall
 
 
 
