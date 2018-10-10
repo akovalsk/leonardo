@@ -158,12 +158,12 @@ RUN apt-get update \
 
 
 # Python 3 Kernel
-RUN wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz
- && tar xvf Python-3.6.4.tgz
- && cd Python-3.6.4
- && ./configure --enable-optimizations
- && make -j8
- && make altinstall
+RUN wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz \
+ && tar xvf Python-3.6.4.tgz \
+ && cd Python-3.6.4 \
+ && ./configure --enable-optimizations \
+ && make -j8 \
+ && make altinstall \
 # &&  apt-get install -yq --no-install-recommends python3 \
 #        python3-dev \
 #        python3-tk \
