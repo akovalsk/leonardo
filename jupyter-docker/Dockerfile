@@ -168,7 +168,7 @@ RUN wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz \
 #        python3-dev \
 #        python3-tk \
 
- && python3 get-pip.py \
+ # && python3 get-pip.py \
  # install the python 3 kernel
  && pip3 install tornado==4.5.3 \
  && pip3 install ipykernel==4.8.2 \
