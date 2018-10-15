@@ -16,6 +16,8 @@ RUN echo "deb $DEBIAN_REPO/debian stretch main"                   > /etc/apt/sou
  && echo "deb $DEBIAN_REPO/debian-security stretch/updates main" >> /etc/apt/sources.list \
  && echo "deb $DEBIAN_REPO/debian stretch-backports main"        >> /etc/apt/sources.list \
  && echo "deb $CRAN_REPO/bin/linux/debian stretch-cran34/"       >> /etc/apt/sources.list \
+ && echo 'APT::Default-Release "stable";' | tee -a /etc/apt/apt.conf.d/00local \
+ && echo "deb http://ftp.de.debian.org/debian testing main"      >> /etc/apt/sources.list \
  && apt-get update && apt-get install -my wget gnupg \
  && apt-key adv --keyserver keys.gnupg.net \
     --recv-key 'E19F5F87128899B192B1A2C2AD5F960A256A04AF' \
@@ -158,18 +160,24 @@ RUN apt-get update \
 
 
 # Python 3 Kernel
-RUN wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz \
- && tar xvf Python-3.6.4.tgz \
- && cd Python-3.6.4 \
- && ./configure --enable-optimizations \
- && make -j8 \
- && make altinstall \
+RUN apt-get update \
+ && apt-get -t testing install -y python3.6 \
+#wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz \
+# && tar xvf Python-3.6.4.tgz \
+# && cd Python-3.6.4 \
+# && ./configure --enable-optimizations \
+# && make -j8 \
+# && make altinstall \
+# && curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
+ && python3 get-pip.py
 # &&  apt-get install -yq --no-install-recommends python3 \
 #        python3-dev \
 #        python3-tk \
 
  # && python3 get-pip.py \
  # install the python 3 kernel
+RUN apt-get update \
+ && pip3 install gitsome \
  && pip3 install tornado==4.5.3 \
  && pip3 install ipykernel==4.8.2 \
  && python3 -m ipykernel install --name python3 --display-name "Python 3" \
@@ -181,7 +189,7 @@ RUN wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz \
  && pip3 install pandas \
  && pip3 install seaborn \
  && pip3 install -U jupyter \
- && pip3 install python-lzo \
+ # && pip3 install python-lzo \
  && pip3 install google-api-core==1.3.0 \
  && pip3 install google-cloud-bigquery==1.4.0 \
  && pip3 install google-cloud-bigquery-datatransfer==0.1.1 \
@@ -197,9 +205,9 @@ RUN wget https://www.python.org/ftp/python/3.6.4/Python-3.6.4.tgz \
  && pip3 install pyfasta \
  && pip3 install pdoc \
  && pip3 install biopython \
- && pip3 install bx-python \
- && pip3 install fastinterval \
- && pip3 install matplotlib-venn \
+ # && pip3 install bx-python \
+ # && pip3 install fastinterval \
+ # && pip3 install matplotlib-venn \
  # for jupyter_localize_extension
  && pip3 install python-datauri \
  #&& apt-get clean \
@@ -240,10 +248,10 @@ RUN R -e 'install.packages(c( \
     "bigrquery",  \
     "tidyverse"), \
     repos="http://cran.mtu.edu")' \
- && R -e 'devtools::install_github("DataBiosphere/Ronaldo")' \
- && R -e 'devtools::install_github("IRkernel/IRkernel")' \
- && R -e 'IRkernel::installspec(user=FALSE)' \
- && chown -R $USER:users /home/jupyter-user/.local  \
+ #&& R -e 'devtools::install_github("DataBiosphere/Ronaldo")' \
+ # && R -e 'devtools::install_github("IRkernel/IRkernel")' \
+ # && R -e 'IRkernel::installspec(user=FALSE)' \
+ # && chown -R $USER:users /home/jupyter-user/.local  \
  && R -e 'devtools::install_github("apache/spark@v2.3.1", subdir="R/pkg")' \
  && mkdir -p /home/jupyter-user/.rpackages \
  && echo "R_LIBS=/home/jupyter-user/.rpackages" > /home/jupyter-user/.Renviron \
