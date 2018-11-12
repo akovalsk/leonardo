@@ -287,6 +287,12 @@ if [[ "${ROLE}" == 'Master' ]]; then
     log 'All done!'
 fi
 
+export DEBIAN_FRONTEND=noninteractive
+echo "deb http://cdn-fastly.deb.debian.org/debian jessie main"                   > /etc/apt/sources.list \
+retry 5 betterAptGet
+retry 5 apt-get -yq --force-yes install -t jessie --no-install-recommends \
+    python3.4
+retry 5 update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.4 100
 
 
 
