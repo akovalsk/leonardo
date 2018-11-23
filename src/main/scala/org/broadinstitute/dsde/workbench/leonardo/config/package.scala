@@ -23,6 +23,7 @@ package object config {
       GoogleProject(config.getString("leoGoogleProject")),
       config.getString("dataprocDockerImage"),
       config.getString("clusterUrlBase"),
+      toScalaDuration(config.getDuration("defaultExecutionTimeout")),
       config.getString("jupyterServerName"),
       config.getString("firewallRuleName"),
       config.getString("networkTag"),
@@ -102,6 +103,13 @@ package object config {
     ZombieClusterConfig(
       config.getBoolean("enableZombieClusterMonitor"),
       toScalaDuration(config.getDuration("pollPeriod"))
+    )
+  }
+
+  implicit val clusterDnsCacheConfig: ValueReader[ClusterDnsCacheConfig] = ValueReader.relative { config =>
+    ClusterDnsCacheConfig(
+      toScalaDuration(config.getDuration("cacheExpiryTime")),
+      config.getInt("cacheMaxSize")
     )
   }
 }

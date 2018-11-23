@@ -4,37 +4,37 @@ set -e -x
 
 # adapted from https://github.com/GoogleCloudPlatform/dataproc-initialization-actions/blob/master/datalab/datalab.sh
 
-function update_apt_get() {
-  for ((i = 0; i < 10; i++)); do
-    if apt-get update; then
+# Retry a command up to a specific number of times until it exits successfully,
+# with exponential back off.
+#
+# $ retry 5 echo "Hello"
+# Hello
+#
+# $ retry 5 false
+# Retry 1/5 exited 1, retrying in 2 seconds...
+# Retry 2/5 exited 1, retrying in 4 seconds...
+# Retry 3/5 exited 1, retrying in 8 seconds...
+# Retry 4/5 exited 1, retrying in 16 seconds...
+# Retry 5/5 exited 1, no more retries left.
+#
+function retry {
+  local retries=$1
+  shift
+
+  for ((i = 1; i <= $retries; i++)); do
+    # run with an 'or' so set -e doesn't abort the bash script on errors
+    exit=0
+    "$@" || exit=$?
+    if [ $exit -eq 0 ]; then
       return 0
     fi
-    sleep 5
-  done
-  return 1
-}
-
-# Runs docker-compose to instantiate the notebooks docker container.
-# This function may retry docker-compose calls to hopefully mitigate intermittent timeouts pulling from GCR.
-function run_docker_compose() {
-  COMPOSE_FILE=$1
-  NUM_TRIES=5
-  DELAY_SECONDS=5
-  docker-compose -f $COMPOSE_FILE config
-  for ((i = 0; i < $NUM_TRIES; i++)); do
-    docker-compose -f $COMPOSE_FILE pull
-    if [ $? -ne 0 ]; then
-      sleep $DELAY_SECONDS
-      continue
+    wait=$((2 ** $i))
+    if [ $i -eq $retries ]; then
+      log "Retry $i/$retries exited $exit, no more retries left."
+      break
     fi
-    docker-compose -f $COMPOSE_FILE up -d
-    if [ $? -ne 0 ]; then
-      docker-compose -f $COMPOSE_FILE stop
-      docker-compose -f $COMPOSE_FILE rm -f
-      sleep $DELAY_SECONDS
-      continue
-    fi
-    return 0
+    log "Retry $i/$retries exited $exit, retrying in $wait seconds..."
+    sleep $wait
   done
   return 1
 }
@@ -43,6 +43,13 @@ function log() {
   echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $@"
 }
 
+function betterAptGet() {
+  if ! { apt-get update 2>&1 || echo E: update failed; } | grep -q '^[WE]:'; then
+    return 0
+  else
+    return 1
+  fi
+}
 # Initialize the dataproc cluster with Jupyter and apache proxy docker images
 # Uses cluster-docker-compose.yaml
 
@@ -89,11 +96,17 @@ if [[ "${ROLE}" == 'Master' ]]; then
 
     log 'Installing prerequisites...'
 
+    # Obtain the latest valid apt-key.gpg key file from https://packages.cloud.google.com to work
+    # around intermittent apt authentication errors. See:
+    # https://cloud.google.com/compute/docs/troubleshooting/known-issues
+    retry 5 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+    retry 5 apt-key update
+
     # install Docker
     # https://docs.docker.com/install/linux/docker-ce/debian/
     export DOCKER_CE_VERSION="18.03.0~ce-0~debian"
-    update_apt_get
-    apt-get install -y -q \
+    retry 5 betterAptGet
+    retry 5 apt-get install -y -q \
      apt-transport-https \
      ca-certificates \
      curl \
@@ -102,7 +115,7 @@ if [[ "${ROLE}" == 'Master' ]]; then
 
     log 'Adding Docker package sources...'
 
-    curl -fsSL https://download.docker.com/linux/$(. /etc/os-release; echo "$ID")/gpg | apt-key add -
+    retry 5 curl -fsSL https://download.docker.com/linux/$(. /etc/os-release; echo "$ID")/gpg | apt-key add -
 
     add-apt-repository \
      "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") \
@@ -111,14 +124,14 @@ if [[ "${ROLE}" == 'Master' ]]; then
 
     log 'Installing Docker...'
 
-    update_apt_get
-    apt-get install -y -q docker-ce=$DOCKER_CE_VERSION
+    retry 5 betterAptGet
+    retry 5 apt-get install -y -q docker-ce=$DOCKER_CE_VERSION
 
     log 'Installing Docker Compose...'
 
     # Install docker-compose
     # https://docs.docker.com/compose/install/#install-compose
-    curl -L "https://github.com/docker/compose/releases/download/1.22.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    retry 5 curl -L "https://github.com/docker/compose/releases/download/1.22.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
     chmod +x /usr/local/bin/docker-compose
 
     log 'Copying secrets from GCS...'
@@ -157,17 +170,22 @@ if [[ "${ROLE}" == 'Master' ]]; then
     log 'Starting up the Jupydocker...'
 
     # Run docker-compose. This mounts Hadoop, Spark, and other resources inside the docker container.
-    run_docker_compose "/etc/`basename ${JUPYTER_DOCKER_COMPOSE}`"
+    # Note the `docker-compose pull` is retried to avoid intermittent network errors, but
+    # `docker-compose up` is not retried.
+    COMPOSE_FILE=/etc/`basename ${JUPYTER_DOCKER_COMPOSE}`
+    docker-compose -f $COMPOSE_FILE config
+    retry 5 docker-compose -f $COMPOSE_FILE pull
+    docker-compose -f $COMPOSE_FILE up -d
 
     log 'Installing Jupydocker kernelspecs...'
 
     # Change Python and PySpark 2 and 3 kernel specs to allow each to have its own spark
-    docker exec -u root ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/kernel/kernelspec.sh ${JUPYTER_SCRIPTS}/kernel ${KERNELSPEC_HOME}
+    retry 3 docker exec -u root ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/kernel/kernelspec.sh ${JUPYTER_SCRIPTS}/kernel ${KERNELSPEC_HOME}
 
     log 'Installing Hail additions to Jupydocker spark.conf...'
 
     # Install the Hail additions to Spark conf.
-    docker exec -u root ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/hail/spark_install_hail.sh
+    retry 3 docker exec -u root ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/hail/spark_install_hail.sh
 
     # Copy the actual service account JSON file into the Jupyter docker container.
     if [ ! -z ${JUPYTER_SERVICE_ACCOUNT_CREDENTIALS} ] ; then
@@ -184,14 +202,14 @@ if [[ "${ROLE}" == 'Master' ]]; then
           gsutil cp $ext /etc
           JUPYTER_EXTENSION_ARCHIVE=`basename $ext`
           docker cp /etc/${JUPYTER_EXTENSION_ARCHIVE} ${JUPYTER_SERVER_NAME}:${JUPYTER_HOME}/${JUPYTER_EXTENSION_ARCHIVE}
-          docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_install_notebook_extension.sh ${JUPYTER_HOME}/${JUPYTER_EXTENSION_ARCHIVE}
+          retry 3 docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_install_notebook_extension.sh ${JUPYTER_HOME}/${JUPYTER_EXTENSION_ARCHIVE}
         elif [[ $ext == 'http://'* || $ext == 'https://'* ]]; then
           JUPYTER_EXTENSION_FILE=`basename $ext`
           curl $ext -o /etc/${JUPYTER_EXTENSION_FILE}
           docker cp /etc/${JUPYTER_EXTENSION_FILE} ${JUPYTER_SERVER_NAME}:${JUPYTER_HOME}/${JUPYTER_EXTENSION_FILE}
-          docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_install_notebook_extension.sh ${JUPYTER_HOME}/${JUPYTER_EXTENSION_FILE}
+          retry 3 docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_install_notebook_extension.sh ${JUPYTER_HOME}/${JUPYTER_EXTENSION_FILE}
         else
-          docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_pip_install_notebook_extension.sh $ext
+          retry 3 docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_pip_install_notebook_extension.sh $ext
         fi
       done
     fi
@@ -205,9 +223,9 @@ if [[ "${ROLE}" == 'Master' ]]; then
           gsutil cp $ext /etc
           JUPYTER_EXTENSION_ARCHIVE=`basename $ext`
           docker cp /etc/${JUPYTER_EXTENSION_ARCHIVE} ${JUPYTER_SERVER_NAME}:${JUPYTER_HOME}/${JUPYTER_EXTENSION_ARCHIVE}
-          docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_install_server_extension.sh ${JUPYTER_HOME}/${JUPYTER_EXTENSION_ARCHIVE}
+          retry 3 docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_install_server_extension.sh ${JUPYTER_HOME}/${JUPYTER_EXTENSION_ARCHIVE}
         else
-          docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_pip_install_server_extension.sh $ext
+          retry 3 docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_pip_install_server_extension.sh $ext
         fi
       done
     fi
@@ -222,9 +240,9 @@ if [[ "${ROLE}" == 'Master' ]]; then
           gsutil cp $ext /etc
           JUPYTER_EXTENSION_ARCHIVE=`basename $ext`
           docker cp /etc/${JUPYTER_EXTENSION_ARCHIVE} ${JUPYTER_SERVER_NAME}:${JUPYTER_HOME}/${JUPYTER_EXTENSION_ARCHIVE}
-          docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_install_combined_extension.sh ${JUPYTER_EXTENSION_ARCHIVE}
+          retry 3 docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_install_combined_extension.sh ${JUPYTER_EXTENSION_ARCHIVE}
         else
-          docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_pip_install_combined_extension.sh $ext
+          retry 3 docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/extension/jupyter_pip_install_combined_extension.sh $ext
         fi
       done
     fi
@@ -234,7 +252,7 @@ if [[ "${ROLE}" == 'Master' ]]; then
       log 'Installing Jupyter custom.js...'
       gsutil cp ${JUPYTER_CUSTOM_JS_URI} /etc
       JUPYTER_CUSTOM_JS=`basename ${JUPYTER_CUSTOM_JS_URI}`
-      docker exec ${JUPYTER_SERVER_NAME} mkdir -p ${JUPYTER_USER_HOME}/.jupyter/custom
+      retry 3 docker exec ${JUPYTER_SERVER_NAME} mkdir -p ${JUPYTER_USER_HOME}/.jupyter/custom
       docker cp /etc/${JUPYTER_CUSTOM_JS} ${JUPYTER_SERVER_NAME}:${JUPYTER_USER_HOME}/.jupyter/custom/
     fi
 
@@ -243,7 +261,7 @@ if [[ "${ROLE}" == 'Master' ]]; then
       log 'Installing Google sign in extension...'
       gsutil cp ${JUPYTER_GOOGLE_SIGN_IN_JS_URI} /etc
       JUPYTER_GOOGLE_SIGN_IN_JS=`basename ${JUPYTER_GOOGLE_SIGN_IN_JS_URI}`
-      docker exec ${JUPYTER_SERVER_NAME} mkdir -p ${JUPYTER_USER_HOME}/.jupyter/custom
+      retry 3 docker exec ${JUPYTER_SERVER_NAME} mkdir -p ${JUPYTER_USER_HOME}/.jupyter/custom
       docker cp /etc/${JUPYTER_GOOGLE_SIGN_IN_JS} ${JUPYTER_SERVER_NAME}:${JUPYTER_USER_HOME}/.jupyter/custom/
     fi
 
@@ -259,13 +277,13 @@ if [[ "${ROLE}" == 'Master' ]]; then
       gsutil cp ${JUPYTER_USER_SCRIPT_URI} /etc
       JUPYTER_USER_SCRIPT=`basename ${JUPYTER_USER_SCRIPT_URI}`
       docker cp /etc/${JUPYTER_USER_SCRIPT} ${JUPYTER_SERVER_NAME}:${JUPYTER_HOME}/${JUPYTER_USER_SCRIPT}
-      docker exec -u root ${JUPYTER_SERVER_NAME} chmod +x ${JUPYTER_HOME}/${JUPYTER_USER_SCRIPT}
-      docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_HOME}/${JUPYTER_USER_SCRIPT}
+      retry 3 docker exec -u root ${JUPYTER_SERVER_NAME} chmod +x ${JUPYTER_HOME}/${JUPYTER_USER_SCRIPT}
+      retry 3 docker exec -u root -e PIP_USER=false ${JUPYTER_SERVER_NAME} ${JUPYTER_HOME}/${JUPYTER_USER_SCRIPT}
     fi
 
 
     log 'Starting Jupyter Notebook...'
-    docker exec -d ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/run-jupyter.sh
+    retry 3 docker exec -d ${JUPYTER_SERVER_NAME} ${JUPYTER_SCRIPTS}/run-jupyter.sh
     log 'All done!'
 fi
 

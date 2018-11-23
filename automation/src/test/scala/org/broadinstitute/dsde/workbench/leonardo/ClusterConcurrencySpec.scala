@@ -3,7 +3,9 @@ package org.broadinstitute.dsde.workbench.leonardo
 import org.broadinstitute.dsde.workbench.fixture.BillingFixtures
 import org.broadinstitute.dsde.workbench.leonardo.Leonardo.ApiVersion.V2
 import org.broadinstitute.dsde.workbench.service.util.Tags
+import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{FreeSpec, ParallelTestExecution}
+
 
 /**
   * Created by rtitle on 4/26/18.
@@ -39,30 +41,43 @@ class ClusterConcurrencySpec extends FreeSpec with LeonardoTestUtils with Parall
       }
     }
 
-    // create -> no wait -> delete
-    "should delete a creating cluster" in {
-      withProject { project => implicit token =>
-        logger.info(s"${project.value}: should delete a creating cluster")
-
-        // delete while the cluster is still creating
-        withNewCluster(project, monitorCreate = false, monitorDelete = true, apiVersion = V2)(noop)
-      }
-    }
-
     // create -> wait -> delete -> no wait -> delete
-    "should not be able to delete a deleting cluster" in {
+    "deleting an already deleting cluster should be a no-op" in {
       withProject { project => implicit token =>
-        logger.info(s"${project.value}: should not be able to delete a deleting cluster")
+        logger.info(s"${project.value}: deleting an already deleting cluster should be a no-op")
 
+        // create a cluster. Delete cluster but don't wait
         val cluster = withNewCluster(project, monitorCreate = true)(identity)
 
-        // second delete should succeed
-        deleteAndMonitor(project, cluster.clusterName)
+        // cluster status is Deleting before test can proceed further
+        withClue(s"Waiting for Cluster ${cluster.clusterName} status to become Deleting. ") {
+          eventually(timeout(Span(300, Seconds)), interval(Span(30, Seconds))) {
+            val status = Leonardo.cluster.get(project, cluster.clusterName).status
+            status shouldBe ClusterStatus.Deleting
+          }
+        }
+
+        // second delete call should be a no-op
+        deleteCluster(project, cluster.clusterName, monitor=false)
+
+        // sleep 2 seconds. Then check cluster status is unchanged
+        Thread.sleep(2000)
+        withClue(s"Cluster ${cluster.clusterName} status Deleting should be unchanged") {
+          eventually(timeout(Span(2, Seconds))) {
+            val status = Leonardo.cluster.get(project, cluster.clusterName).status
+            status shouldBe ClusterStatus.Deleting
+          }
+        }
       }
     }
 
+    // TODO: ignoring this test because it's not completely deterministic.
+    // Sometimes Google will fail to start a Stopping cluster.
+    // https://github.com/DataBiosphere/leonardo/issues/648 is open to
+    // revisit this behavior in Leo.
+    //
     // create -> wait -> stop -> no wait -> start -> delete
-    "should be able to start a stopping cluster" in {
+    "should be able to start a stopping cluster" ignore {
       withProject { project => implicit token =>
         logger.info(s"${project.value}: should be able to start a stopping cluster")
 

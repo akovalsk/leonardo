@@ -69,7 +69,9 @@ case class Cluster(clusterName: ClusterName,
                    errors:List[ClusterError],
                    dateAccessed: Instant,
                    defaultClientId: Option[String],
-                   stopAfterCreation: Boolean)
+                   stopAfterCreation: Boolean) {
+  def projectNameString: String = s"${googleProject.value}/${clusterName.string}"
+}
 
 case class ClusterRequest(labels: LabelMap = Map(),
                           jupyterExtensionUri: Option[String] = None,
@@ -122,6 +124,7 @@ object ClusterStatus extends Enumeration {
   val Unknown, Creating, Running, Updating, Error, Deleting, Deleted, Stopping, Stopped, Starting = Value
   val activeStatuses = Set(Unknown, Creating, Running, Updating)
   val monitoredStatuses = Set(Unknown, Creating, Updating, Deleting)
+  val deletableStatuses: Set[ClusterStatus] = Set(Unknown, Running, Updating, Error, Stopping, Stopped, Starting)
 
   class StatusValue(status: ClusterStatus) {
     def isActive: Boolean = activeStatuses contains status
