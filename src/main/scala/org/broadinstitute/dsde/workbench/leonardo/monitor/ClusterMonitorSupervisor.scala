@@ -12,6 +12,7 @@ import org.broadinstitute.dsde.workbench.leonardo.model.google.ClusterStatus
 import org.broadinstitute.dsde.workbench.leonardo.model.{Cluster, ClusterRequest, LeoAuthProvider}
 import org.broadinstitute.dsde.workbench.leonardo.monitor.ClusterMonitorSupervisor._
 import org.broadinstitute.dsde.workbench.leonardo.service.LeonardoService
+import org.broadinstitute.dsde.workbench.leonardo.util.ValueBox
 import org.broadinstitute.dsde.workbench.model.WorkbenchException
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,8 +54,7 @@ class ClusterMonitorSupervisor(monitorConfig: MonitorConfig, dataprocConfig: Dat
 
   var leoService: LeonardoService = _
 
-  // TODO Is it safe enough concurrency-wise?
-  @volatile private[this] var monitoredClusters: Set[Cluster] = Set.empty
+  val monitoredClusters: ValueBox[Set[Cluster]] = ValueBox(Set.empty)
 
   import context._
 
@@ -160,14 +160,15 @@ class ClusterMonitorSupervisor(monitorConfig: MonitorConfig, dataprocConfig: Dat
     }
   }
 
-  // TODO Factor in `stopAfterCreate` field while sending messages, once we start persisting that field
+  // TODO Factor in `stopAfterCreate` field while sending messages, now that we are persisting that field
   private def createClusterMonitors(implicit executionContext: ExecutionContext): Unit = {
     dbRef
       .inTransaction { _.clusterQuery.listMonitored() }
       .onComplete {
         case Success(clusters) =>
-          val clustersNotAlreadyBeingMonitored = clusters.toSet -- monitoredClusters
+          val clustersNotAlreadyBeingMonitored = clusters.toSet -- monitoredClusters.value
 
+          // TODO Add ClusterUpdated once https://github.com/DataBiosphere/leonardo/pull/669 is merged
           clustersNotAlreadyBeingMonitored foreach {
             case c if c.status == ClusterStatus.Deleting => self ! ClusterDeleted(c)
             case c if c.status == ClusterStatus.Stopping => self ! ClusterStopped(c)
@@ -175,7 +176,7 @@ class ClusterMonitorSupervisor(monitorConfig: MonitorConfig, dataprocConfig: Dat
             case c => self ! ClusterCreated(c)
           }
 
-          monitoredClusters ++ clustersNotAlreadyBeingMonitored
+          monitoredClusters.mutate(_ ++ clustersNotAlreadyBeingMonitored)
         case Failure(e) =>
           logger.error("Error starting cluster monitor", e)
       }
